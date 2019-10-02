@@ -17,14 +17,7 @@ DEST_CORNERS = np.array([
   [0, 768], # bottom left
 ])
 
-X_FACTOR_TOP_LEFT = 0.087890625 
-Y_FACTOR_TOP_LEFT = 0.078125
-
-X_FACTOR_BOTTOM_LEFT = 0.8
-Y_FACTOR_BOTTOM_LEFT = 0.6
-
-X_FACTOR_BOTTOM_RIGHT = 0.1
-Y_FACTOR_BOTTOM_RIGHT = 0.7
+VERTICAL_OFFSET = 31 # For title bar
 
 def corner_points_to_point(corner):
   return corner[0][0]
@@ -40,19 +33,8 @@ def calibrate(cap):
   dimensions = (width, height)
   frame = cv2.resize(frame, dimensions, interpolation = cv2.INTER_AREA)
 
-  # def draw_corner(frame, x_factor, y_factor):
-  #   corner_position = (int(x_factor * width), int(y_factor * height))
-  #   frame = cv2.circle(frame, corner_position, 10, (200, 100, 100), 5)
-  #   return frame
-
-  # frame = draw_corner(frame, X_FACTOR_TOP_LEFT, Y_FACTOR_TOP_LEFT)
-  # frame = draw_corner(frame, X_FACTOR_BOTTOM_LEFT, Y_FACTOR_BOTTOM_LEFT)
-  # frame = draw_corner(frame, X_FACTOR_BOTTOM_RIGHT, Y_FACTOR_BOTTOM_RIGHT)
-
   # Show it
   cv2.imshow("Tinycam", frame)
-  blank_image = np.zeros((768, 1366, 3), np.uint8) # TODO: magic nums, use config constants
-  # cv2.imshow("Tinyland", blank_image)
   
   # Escape hatch
   if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -60,8 +42,8 @@ def calibrate(cap):
   
   # Homography stuff
   homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
-  print(status)
-  warpedImage = cv2.warpPerspective(frame, homography, (1366, 768))
+  warpedImage = cv2.warpPerspective(frame, homography, (1366, 768)) # TODO: magic nums, use config constants
+  warpedImage = cv2.flip(warpedImage, -1)
   cv2.imshow("Tinyland", warpedImage)
 
 def printXY(_a, x, y, _b, _c):
