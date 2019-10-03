@@ -33,9 +33,6 @@ def calibrate(cap):
   dimensions = (width, height)
   frame = cv2.resize(frame, dimensions, interpolation = cv2.INTER_AREA)
 
-  # Show it
-  cv2.imshow("Tinycam", frame)
-  
   # Escape hatch
   if cv2.waitKey(1) & 0xFF == ord('q'):
     exit()
@@ -49,6 +46,9 @@ def calibrate(cap):
   correctedImage = cv2.warpAffine(correctedImage, T, (width, height)) 
   BLACK = (0, 0, 0)
   correctedImage = cv2.rectangle(correctedImage, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
+  
+  # Show it
+  cv2.imshow("Tinycam", frame)
   cv2.imshow("Tinyland", correctedImage)
 
 def printXY(_a, x, y, _b, _c):
