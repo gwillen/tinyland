@@ -26,13 +26,15 @@ VERTICAL_OFFSET = -45 # For title bar
 def correctImage(original_image, homography, dimensions):
     correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
     correctedImage = cv2.flip(correctedImage, -1)
-    T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]])
+    T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]]) # Transform to correct for title bar
     correctedImage = cv2.warpAffine(correctedImage, T, dimensions) 
     return correctedImage
 
 def calibrate(cap):
   # Use camera 1, which is the attached usb camera.
   frame = cap.read()[1]
+  
+  # Scaling things
   scale_percent = 100
   width = int(frame.shape[1] * scale_percent / 100)
   height = int(frame.shape[0] * scale_percent / 100)
@@ -62,7 +64,6 @@ def calibrate(cap):
   image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
   frame = aruco.drawDetectedMarkers(frame, corners, ids)
   image = aruco.drawDetectedMarkers(image, corners, ids)
-  # image = cv2.circle(image, (100, 100), 30, WHITE, 5)
   
   # Show it
   cv2.imshow("Tinycam", frame)
