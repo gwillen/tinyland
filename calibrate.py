@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 
 # Config - Dependent on projector and camera position, so fiddle with these until they line up with the corners of your monitor
+PROJECTOR_WIDTH = 1366
+PROJECTOR_HEIGHT = 768
+
 SRC_CORNERS = np.array([
   [101, 16], # top left
   [1004, 5], # top right
@@ -12,9 +15,9 @@ SRC_CORNERS = np.array([
 # Projector dimensions
 DEST_CORNERS = np.array([
   [0, 0], # top left
-  [1366, 0], # top right
-  [1366, 768], # bottom right
-  [0, 768], # bottom left
+  [PROJECTOR_WIDTH, 0], # top right
+  [PROJECTOR_WIDTH, PROJECTOR_HEIGHT], # bottom right
+  [0, PROJECTOR_HEIGHT], # bottom left
 ])
 
 VERTICAL_OFFSET = -45 # For title bar
@@ -39,11 +42,13 @@ def calibrate(cap):
   
   # Homography stuff
   homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
-  correctedImage = cv2.warpPerspective(frame, homography, (1366, 768)) # TODO: magic nums, use config constants
+  correctedImage = cv2.warpPerspective(frame, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
   correctedImage = cv2.flip(correctedImage, -1)
 
   T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]])
   correctedImage = cv2.warpAffine(correctedImage, T, (width, height)) 
+  BLACK = (0, 0, 0)
+  correctedImage = cv2.rectangle(correctedImage, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
   cv2.imshow("Tinyland", correctedImage)
 
 def printXY(_a, x, y, _b, _c):
