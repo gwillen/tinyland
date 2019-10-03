@@ -3,10 +3,10 @@ import numpy as np
 
 # Config - Dependent on projector and camera position, so fiddle with these until they line up with the corners of your monitor
 SRC_CORNERS = np.array([
-  [119, 82], # top left
-  [1016, 47], # top right
-  [1031, 585], # bottom right
-  [136, 615], # bottom left
+  [101, 16], # top left
+  [1004, 5], # top right
+  [1005, 547], # bottom right
+  [107, 555], # bottom left
 ])
 
 # Projector dimensions
@@ -17,10 +17,7 @@ DEST_CORNERS = np.array([
   [0, 768], # bottom left
 ])
 
-VERTICAL_OFFSET = 31 # For title bar
-
-def corner_points_to_point(corner):
-  return corner[0][0]
+VERTICAL_OFFSET = -45 # For title bar
 
 def calibrate(cap):
   # Use camera 1, which is the attached usb camera.
@@ -42,9 +39,12 @@ def calibrate(cap):
   
   # Homography stuff
   homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
-  warpedImage = cv2.warpPerspective(frame, homography, (1366, 768)) # TODO: magic nums, use config constants
-  warpedImage = cv2.flip(warpedImage, -1)
-  cv2.imshow("Tinyland", warpedImage)
+  correctedImage = cv2.warpPerspective(frame, homography, (1366, 768)) # TODO: magic nums, use config constants
+  correctedImage = cv2.flip(correctedImage, -1)
+
+  T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]])
+  correctedImage = cv2.warpAffine(correctedImage, T, (width, height)) 
+  cv2.imshow("Tinyland", correctedImage)
 
 def printXY(_a, x, y, _b, _c):
   print("x: ", x)
@@ -57,7 +57,7 @@ if __name__ == "__main__":
   
   cv2.namedWindow("Tinyland")
   cv2.namedWindow("Tinycam")
-  # cv2.setMouseCallback("Tinycam", printXY)
+  cv2.setMouseCallback("Tinycam", printXY)
   
   while True:
     calibrate(cap)
