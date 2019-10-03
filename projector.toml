@@ -1,0 +1,25 @@
+# Config - Dependent on projector and camera position, so fiddle with these until they line up with the corners of your monitor
+
+PROJECTOR_WIDTH = 1366
+PROJECTOR_HEIGHT = 768
+
+SRC_CORNERS = [
+  [109, 74], # top left
+  [1000, 64], # top right
+  [1009, 598], # bottom right
+  [103, 610], # bottom left
+]
+
+# Projector dimensions
+DEST_CORNERS = [
+  [0, 0], # top left
+  [1366, 0], # top right
+  [1366, 768], # bottom right
+  [0, 768], # bottom left
+]
+
+VERTICAL_OFFSET = -45 # For title bar
+
+# If you're developing offline, use these to load from a video file instead of the usb camera.
+USE_CAMERA = true 
+VIDEO_FILE_PATH = "/Users/emma/Desktop/test.m4v"
