@@ -45,7 +45,9 @@ def calibrate(cap):
   T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]])
   correctedImage = cv2.warpAffine(correctedImage, T, (width, height)) 
   BLACK = (0, 0, 0)
+  WHITE = (255, 255, 255)
   correctedImage = cv2.rectangle(correctedImage, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
+  correctedImage = cv2.circle(correctedImage, (100, 100), 30, WHITE, 5)
   
   # Show it
   cv2.imshow("Tinycam", frame)
