@@ -6,10 +6,11 @@ Use `pip3 install` to install the libraries in `pyland.py`.
 
 Set values in "projector.toml" as needed. 
 
-To develop offline, set these two:
+To develop offline:
 ```
 USE_CAMERA = false 
 VIDEO_FILE_PATH = "/path/to/a/video/of/the/table.m4v"
+FLIP_PROJECTION = false
 ``` 
 
 Where can I get some of these test videos? [Right here](https://www.dropbox.com/s/qy7gj1giyj1gpd3/tinyland-test-videos.zip?dl=0)
