@@ -10,11 +10,8 @@ def load_config():
 def correctImage(original_image, homography, projector):
   PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
   PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
-  VERTICAL_OFFSET = projector["VERTICAL_OFFSET"]
   correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
   correctedImage = cv2.flip(correctedImage, -1)
-  T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]]) # Transform to correct for title bar
-  correctedImage = cv2.warpAffine(correctedImage, T, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT))
   return correctedImage
 
 def toggle_fullscreen():
@@ -61,7 +58,7 @@ def calibrate(cap, projector):
   image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
   # frame = aruco.drawDetectedMarkers(frame, corners, ids)
   image = aruco.drawDetectedMarkers(image, corners, ids)
-  
+
   # Show it
   cv2.imshow("Tinycam", frame)
   cv2.imshow("Tinyland", image)
@@ -85,7 +82,7 @@ if __name__ == "__main__":
       cap = cv2.VideoCapture(1)
   else:
     cap = cv2.VideoCapture(projector["VIDEO_FILE_PATH"])
-  
+
   while True:
     try:
       projector = load_config()
