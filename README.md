@@ -16,3 +16,7 @@ Where can I get some of these test videos? [Right here](https://www.dropbox.com/
 
 ## Usage
 `python3 ./tinyland.py`
+
+Two window will open, "Tinyland" and "Tinycam". Move Tinyland to the projector. Then press "f" to make it fullscreen. (You can also resize it using the ordinary OS window controls.)
+
+Press "q" to quit.

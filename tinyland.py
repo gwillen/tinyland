@@ -14,6 +14,13 @@ def correctImage(original_image, homography, projector):
   correctedImage = cv2.flip(correctedImage, -1)
   return correctedImage
 
+def toggle_fullscreen():
+  cur = cv2.getWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN)
+  if cur == cv2.WINDOW_NORMAL:
+    cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+  else:
+    cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+
 def calibrate(cap, projector):
   PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
   PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
@@ -26,11 +33,14 @@ def calibrate(cap, projector):
   if frame is None:
     cap.set(cv2.CAP_PROP_POS_MSEC, 0)
     return
-
-  # Escape hatch
-  if cv2.waitKey(1) & 0xFF == ord('q'):
+  
+  # Handle keypress events
+  key = cv2.waitKey(1)
+  if key & 0xFF == ord('q'):
     exit()
-
+  if key & 0xFF == ord('f'):
+    toggle_fullscreen()
+  
   # Homography
   h, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
 
@@ -57,21 +67,13 @@ def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
 
-def tinylandMouse(event, x, y, status, props):
-  if event == cv2.EVENT_LBUTTONDBLCLK:
-    cur = cv2.getWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN)
-    if cur == cv2.WINDOW_NORMAL:
-      cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-    else:
-      cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
-
 if __name__ == "__main__":
   projector = load_config()
   cv2.namedWindow("Tinyland")
   cv2.namedWindow("Tinycam")
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
-  cv2.setMouseCallback("Tinyland", tinylandMouse) # Enable us to fullscreen it once it's on the correct desktop
-
+  cv2.setWindowProperty("Tinyland", cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_NORMAL) # Allow window to be fullsized by both the OS window controls and OpenCV
+  
   # Initialize video capture
   cap = None
   if projector["USE_CAMERA"]:
