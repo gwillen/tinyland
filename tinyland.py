@@ -10,11 +10,8 @@ def load_config():
 def correctImage(original_image, homography, projector):
   PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
   PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
-  VERTICAL_OFFSET = projector["VERTICAL_OFFSET"]
   correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
   correctedImage = cv2.flip(correctedImage, -1)
-  T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]]) # Transform to correct for title bar
-  correctedImage = cv2.warpAffine(correctedImage, T, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT))
   return correctedImage
 
 def calibrate(cap, projector):
@@ -29,11 +26,11 @@ def calibrate(cap, projector):
   if frame is None:
     cap.set(cv2.CAP_PROP_POS_MSEC, 0)
     return
-  
+
   # Escape hatch
   if cv2.waitKey(1) & 0xFF == ord('q'):
     exit()
-  
+
   # Homography
   h, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
 
@@ -51,7 +48,7 @@ def calibrate(cap, projector):
   image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
   # frame = aruco.drawDetectedMarkers(frame, corners, ids)
   image = aruco.drawDetectedMarkers(image, corners, ids)
-  
+
   # Show it
   cv2.imshow("Tinycam", frame)
   cv2.imshow("Tinyland", image)
@@ -60,12 +57,21 @@ def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
 
+def tinylandMouse(event, x, y, status, props):
+  if event == cv2.EVENT_LBUTTONDBLCLK:
+    cur = cv2.getWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN)
+    if cur == cv2.WINDOW_NORMAL:
+      cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    else:
+      cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+
 if __name__ == "__main__":
   projector = load_config()
   cv2.namedWindow("Tinyland")
   cv2.namedWindow("Tinycam")
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
-  
+  cv2.setMouseCallback("Tinyland", tinylandMouse) # Enable us to fullscreen it once it's on the correct desktop
+
   # Initialize video capture
   cap = None
   if projector["USE_CAMERA"]:
@@ -74,7 +80,7 @@ if __name__ == "__main__":
       cap = cv2.VideoCapture(1)
   else:
     cap = cv2.VideoCapture(projector["VIDEO_FILE_PATH"])
-  
+
   while True:
     try:
       projector = load_config()

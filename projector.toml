@@ -18,8 +18,6 @@ DEST_CORNERS = [
   [0, 768], # bottom left
 ]
 
-VERTICAL_OFFSET = -45 # For title bar
-
 # If you're developing offline, use these to load from a video file instead of the usb camera.
-USE_CAMERA = true 
+USE_CAMERA = true
 VIDEO_FILE_PATH = "/Users/emma/Desktop/test.m4v"
