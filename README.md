@@ -2,11 +2,11 @@
 A very small version of Dynamicland. [For more...](https://www.notion.so/Tinyland-f05733c9b73141c181352f5b5012ce1a)
 
 ## Setup
-Use `pip3 install` to install the libraries in `pyland.py`.
+Install dependencies with `pip3 install -r requirements.txt`.
 
-Set values in "projector.toml" as needed. 
+Create a file named "config.toml" at the root directory of the project. See "config-sample.toml" for guidance on what should go in that file.
 
-To develop offline:
+Here's a good starting point for developing offline:
 ```
 USE_CAMERA = false 
 VIDEO_FILE_PATH = "/path/to/a/video/of/the/table.m4v"
@@ -18,6 +18,8 @@ Where can I get some of these test videos? [Right here](https://www.dropbox.com/
 ## Usage
 `python3 ./tinyland.py`
 
-Two window will open, "Tinyland" and "Tinycam". Move Tinyland to the projector. Then press "f" to make it fullscreen. (You can also resize it using the ordinary OS window controls.)
+Two windows will open, "Tinyland" and "Tinycam". Move Tinyland to the projector. Then press "f" to make it fullscreen. (You can also resize it using the ordinary OS window controls.)
+
+Press "c" to run the auto configuration.
 
 Press "q" to quit.
