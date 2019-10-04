@@ -11,13 +11,10 @@ def correctImage(original_image, homography, projector):
   PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
   PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
   VERTICAL_OFFSET = projector["VERTICAL_OFFSET"]
-  width = int(original_image.shape[1])
-  height = int(original_image.shape[0])
-  dimensions = (width, height)
   correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
   correctedImage = cv2.flip(correctedImage, -1)
   T = np.float32([[1, 0, 0], [0, 1, VERTICAL_OFFSET]]) # Transform to correct for title bar
-  correctedImage = cv2.warpAffine(correctedImage, T, dimensions) 
+  correctedImage = cv2.warpAffine(correctedImage, T, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT))
   return correctedImage
 
 def calibrate(cap, projector):
