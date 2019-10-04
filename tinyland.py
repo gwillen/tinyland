@@ -11,7 +11,6 @@ def correctImage(original_image, homography, projector):
   PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
   PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
   correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
-  correctedImage = cv2.flip(correctedImage, -1)
   return correctedImage
 
 def toggle_fullscreen():
@@ -26,6 +25,7 @@ def calibrate(cap, projector):
   PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
   SRC_CORNERS = np.array(projector["SRC_CORNERS"])
   DEST_CORNERS = np.array(projector["DEST_CORNERS"])
+  FLIP_PROJECTION = np.array(projector["FLIP_PROJECTION"])
 
   frame = cap.read()[1]
 
@@ -46,6 +46,8 @@ def calibrate(cap, projector):
 
   # Correction
   image = correctImage(frame, h, projector)
+  if(FLIP_PROJECTION):
+    image = cv2.flip(image, -1)
 
   # Aruco - Find markers
   aruco_markers = aruco.detectMarkers(image, aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL))
