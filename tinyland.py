@@ -4,7 +4,7 @@ import cv2.aruco as aruco
 import toml
 
 def load_config():
-  projector = toml.load('./projector.toml')
+  projector = toml.load('./config.toml')
   return projector
 
 def correctImage(original_image, homography, projector):
