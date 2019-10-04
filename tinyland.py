@@ -60,12 +60,21 @@ def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
 
+def tinylandMouse(event, x, y, status, props):
+  if event == cv2.EVENT_LBUTTONDBLCLK:
+    cur = cv2.getWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN)
+    if cur == cv2.WINDOW_NORMAL:
+      cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    else:
+      cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+
 if __name__ == "__main__":
   projector = load_config()
   cv2.namedWindow("Tinyland")
   cv2.namedWindow("Tinycam")
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
-  
+  cv2.setMouseCallback("Tinyland", tinylandMouse) # Enable us to fullscreen it once it's on the correct desktop
+
   # Initialize video capture
   cap = None
   if projector["USE_CAMERA"]:
