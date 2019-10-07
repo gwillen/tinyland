@@ -143,6 +143,45 @@ def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
 
+
+def select_camera():
+  """Get OpenCV VideoCapture camera. Prompt user if multiple cameras found.
+
+  :return: (cv2.VideoCapture) selected camera.
+  """
+  # Get list of all connected cameras
+  cameras = []
+  while True:
+    cap = cv2.VideoCapture(len(cameras))
+    _, frame = cap.read()
+    if frame is not None:
+      cameras.append(cap)
+    else:
+      break
+
+  if len(cameras) == 0:
+    print("No VideoCapture devices detected!")
+    return None
+  elif len(cameras) == 1:
+    return cameras[0]
+  else:
+    # Open user flow to select camera
+    SELECT_CAM_WINDOW = "Select Camera"
+    cv2.namedWindow(SELECT_CAM_WINDOW)
+    cur_index = 0
+    while True:
+      # Handle keypress events
+      key = cv2.waitKey(1)
+      if key & 0xFF == ord('s'):
+        cv2.destroyWindow(SELECT_CAM_WINDOW)
+        return cameras[cur_index]
+      if key & 0xFF == ord('n'):
+        cur_index = (cur_index - 1) % len(cameras)
+      if key & 0xFF == ord('p'):
+        cur_index = (cur_index - 1) % len(cameras)
+
+      cv2.imshow(SELECT_CAM_WINDOW, cameras[cur_index].read()[1])
+
 if __name__ == "__main__":
   projector = load_config()
   cv2.namedWindow("Tinyland")
@@ -153,9 +192,10 @@ if __name__ == "__main__":
   # Initialize video capture
   cap = None
   if projector["USE_CAMERA"]:
-    # Hacky thing to find the right camera 🤷🏻‍♀️
-    for i in range(5):
-      cap = cv2.VideoCapture(1)
+    try:
+      cap = cv2.VideoCapture(projector["VIDEO_CAPTURE_INDEX"])
+    except KeyError:
+      cap = select_camera()
   else:
     cap = cv2.VideoCapture(projector["VIDEO_FILE_PATH"])
 
