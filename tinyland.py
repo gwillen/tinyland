@@ -163,9 +163,11 @@ def select_camera():
     print("No VideoCapture devices detected!")
     return None
   elif len(cameras) == 1:
+    print("Found one camera, so using that one.")
     return cameras[0]
   else:
     # Open user flow to select camera
+    print("Press n and p to cycle through connected cameras. Press s to select.")
     SELECT_CAM_WINDOW = "Select Camera"
     cv2.namedWindow(SELECT_CAM_WINDOW)
     cur_index = 0
@@ -193,8 +195,10 @@ if __name__ == "__main__":
   cap = None
   if projector["USE_CAMERA"]:
     try:
+      # Grab camera from config
       cap = cv2.VideoCapture(projector["VIDEO_CAPTURE_INDEX"])
     except KeyError:
+      # If camera doesn't exist in config, prompt user to select one of the connected cameras.
       cap = select_camera()
   else:
     cap = cv2.VideoCapture(projector["VIDEO_FILE_PATH"])
