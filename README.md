@@ -6,7 +6,9 @@ Install dependencies with `pip3 install -r requirements.txt`.
 
 Create a file named "config.toml" at the root directory of the project. See "config-sample.toml" for guidance on what should go in that file.
 
-Here's a good starting point for developing offline:
+### Developing offline
+You don't have to be connected to a projector and camera to work on Tinyland. You can use a video of Tinycam footage to stand in for real-world user input. Here's a good starting point for this workflow:
+
 ```
 USE_CAMERA = false 
 VIDEO_FILE_PATH = "/path/to/a/video/of/the/table.m4v"
@@ -14,6 +16,11 @@ FLIP_PROJECTION = false
 ``` 
 
 Where can I get some of these test videos? [Right here](https://www.dropbox.com/s/qy7gj1giyj1gpd3/tinyland-test-videos.zip?dl=0)
+
+### Camera selection
+There are two way to select a camera:
+1) Set it in config: Create a property in config called `VIDEO_CAPTURE_INDEX`. Set it to the integer index of your camera, e.g. `VIDEO_CAPTURE_INDEX = 1`. This varies by system, so you may have to fiddle with it! 
+2) Use the camera selector: If `USE_CAMERA = true` and `VIDEO_CAPTURE_INDEX` is not set, Tinyland will open a camera selection screen. Press "n" and "p" to cycle through cameras. Press "s" to select.
 
 ## Usage
 `python3 ./tinyland.py`
