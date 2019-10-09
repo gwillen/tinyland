@@ -2,23 +2,7 @@ import cv2
 import numpy as np
 import cv2.aruco as aruco
 import toml
-
-def load_config():
-  projector = toml.load('./config.toml')
-  return projector
-
-def correctImage(original_image, homography, projector):
-  PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
-  PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
-  correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
-  return correctedImage
-
-def toggle_fullscreen():
-  cur = cv2.getWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN)
-  if cur == cv2.WINDOW_NORMAL:
-    cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-  else:
-    cv2.setWindowProperty("Tinyland", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+import sys
 
 def squaritude(c):
   _, _, w, h = cv2.boundingRect(c)
@@ -29,30 +13,68 @@ def squaritude(c):
   rectitude = cv2.contourArea(c) / (w*h)
   return aspect * rectitude
 
-def do_frame(cap, projector):
-  PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
-  PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
-  SRC_CORNERS = np.array(projector["SRC_CORNERS"])
-  DEST_CORNERS = np.array(projector["DEST_CORNERS"])
-  FLIP_PROJECTION = np.array(projector["FLIP_PROJECTION"])
+class Landscape:
+  WINDOW_TITLE = "Tinyland"
 
-  frame = cap.read()[1]
+  def __init__(self):
+    self.camera = None
+    self.projector = None
+    self.homography = np.eye(3)
 
-  # If we're at the end of the video, rewind. This comes into play when we're using a video file as input, as for testing offline.
-  if frame is None:
-    cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-    return
+  def load_config(self, config_file):
+    self.projector = toml.load(config_file)
 
-  # Handle keypress events
-  key = cv2.waitKey(1)
-  if key & 0xFF == ord('q'):
-    exit()
-  if key & 0xFF == ord('f'):
-    toggle_fullscreen()
-  if key & 0xFF == ord('c'):
-    projector["CALIBRATE"] = True
+  def toggle_fullscreen(self):
+    cur = cv2.getWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN)
+    if cur == cv2.WINDOW_NORMAL:
+      cv2.setWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    else:
+      cv2.setWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
-  if projector.get("CALIBRATE"):
+  def camera_to_projector_space(self, image):
+    image = cv2.warpPerspective(image, self.homography, (self.projector["PROJECTOR_WIDTH"], self.projector["PROJECTOR_HEIGHT"]))
+    if(self.projector["FLIP_PROJECTION"]):
+      image = cv2.flip(image, -1)
+    return image
+
+  def get_frame(self):
+    frame = self.camera.read()[1]
+
+    # If we're at the end of the video, rewind. This comes into play when we're using a video file as input, as for testing offline.
+    if frame is None and not self.projector["USE_CAMERA"]:
+      self.camera.set(cv2.CAP_PROP_POS_MSEC, 0)
+      frame = self.camera.read()[1]
+
+    return frame
+
+  def get_key(self):
+    key = cv2.waitKey(1)
+    if key == -1:
+      return None
+    return chr(key & 0xFF)
+
+  def display_markers(self, image):
+    PROJECTOR_WIDTH = self.projector["PROJECTOR_WIDTH"]
+    PROJECTOR_HEIGHT = self.projector["PROJECTOR_HEIGHT"]
+
+    # Display calibration markers until we find them
+    M_SZ = 40
+    marker = np.zeros((M_SZ, M_SZ, 3), dtype=np.uint8)
+    cv2.rectangle(marker, (0, 0), (M_SZ, M_SZ), (255, 255, 255), cv2.FILLED)
+    cv2.rectangle(marker, (10, 10), (M_SZ-10, M_SZ-10), (0, 0, 0), cv2.FILLED)
+
+    image[0:M_SZ, 0:M_SZ] = marker
+    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
+    image[0:M_SZ, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
+    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
+    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
+    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
+    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, 0:M_SZ] = marker
+
+  def find_corners(self, frame):
+    PROJECTOR_WIDTH = self.projector["PROJECTOR_WIDTH"]
+    PROJECTOR_HEIGHT = self.projector["PROJECTOR_HEIGHT"]
+
     # Search for our calibration markers
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     rv, frame_thresh = cv2.threshold(frame_gray, 185, 255, cv2.THRESH_BINARY)
@@ -94,55 +116,64 @@ def do_frame(cap, projector):
         point3 = [p for p in boundary if p[0] > PROJECTOR_WIDTH/2 and p[1] > PROJECTOR_HEIGHT/2]
         point4 = [p for p in boundary if p[0] < PROJECTOR_WIDTH/2 and p[1] > PROJECTOR_HEIGHT/2]
         if len(point1) == 1 and len(point2) == 1 and len(point3) == 1 and len(point4) == 1:
-          SRC_CORNERS = np.array([point1[:], point2[:], point3[:], point4[:]])
+          final_corners = np.array([point1[:], point2[:], point3[:], point4[:]])
           # It's slightly hacky for us to mix up our state and our config in this way.
-          projector["SRC_CORNERS"] = SRC_CORNERS
-          projector["CALIBRATE"] = False
+          return final_corners
+    return None
 
-      cv2.drawContours(frame, [boundary], 0, (0, 255, 0), 2)
+  def display_frame(self, image):
+    cv2.imshow(self.WINDOW_TITLE, image)
 
-  # Homography
-  h, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
+  def do_frame(self):
+    PROJECTOR_WIDTH = self.projector["PROJECTOR_WIDTH"]
+    PROJECTOR_HEIGHT = self.projector["PROJECTOR_HEIGHT"]
+    SRC_CORNERS = np.array(self.projector["SRC_CORNERS"])
+    DEST_CORNERS = np.array(self.projector["DEST_CORNERS"])
 
-  # Correction
-  image = correctImage(frame, h, projector)
-  if(FLIP_PROJECTION):
-    image = cv2.flip(image, -1)
+    frame = self.get_frame()
 
-  # Aruco - Find markers
-  aruco_markers = aruco.detectMarkers(image, aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL))
-  corners = aruco_markers[0]
-  ids = aruco_markers[1]
+    # Handle keypress events
+    key = self.get_key()
+    if key == 'q':
+      sys.exit()
+    if key == 'f':
+      self.toggle_fullscreen()
+    if key == 'c':
+      self.projector["CALIBRATE"] = True
 
-  # Render
-  BLACK = (0, 0, 0)
-  WHITE = (255, 255, 255)
-  image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
-  image = aruco.drawDetectedMarkers(image, corners, ids)
+    if self.projector.get("CALIBRATE"):
+      corners = self.find_corners(frame)
+      if corners is not None:
+        SRC_CORNERS = corners
+        self.projector["SRC_CORNERS"] = corners
+        self.projector["CALIBRATE"] = False
+        self.homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
 
-  if projector.get("CALIBRATE"):
-    # Display calibration markers until we find them
-    M_SZ = 40
-    marker = np.zeros((M_SZ, M_SZ, 3), dtype=np.uint8)
-    cv2.rectangle(marker, (0, 0), (M_SZ, M_SZ), (255, 255, 255), cv2.FILLED)
-    cv2.rectangle(marker, (10, 10), (M_SZ-10, M_SZ-10), (0, 0, 0), cv2.FILLED)
+    image = self.camera_to_projector_space(frame)
 
-    image[0:M_SZ, 0:M_SZ] = marker
-    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[0:M_SZ, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
-    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
-    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, 0:M_SZ] = marker
+    # Aruco - Find markers
+    aruco_markers = aruco.detectMarkers(image, aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL))
+    corners = aruco_markers[0]
+    ids = aruco_markers[1]
 
-  # Show it
-  cv2.imshow("Tinycam", frame)
-  cv2.imshow("Tinyland", image)
+    # Render
+    BLACK = (0, 0, 0)
+    WHITE = (255, 255, 255)
+    image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
+    image = aruco.drawDetectedMarkers(image, corners, ids)
+
+    if self.projector.get("CALIBRATE"):
+      self.display_markers(image)
+
+    # Show it
+    self.display_frame(image)
+
+    # Show the debug window
+    cv2.imshow("Tinycam", frame)
 
 def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
-
 
 def select_camera():
   """Get OpenCV VideoCapture camera. Prompt user if multiple cameras found.
@@ -185,23 +216,25 @@ def select_camera():
       cv2.imshow(SELECT_CAM_WINDOW, cameras[cur_index].read()[1])
 
 if __name__ == "__main__":
-  projector = load_config()
-  cv2.namedWindow("Tinyland")
+  l = Landscape()
+  l.load_config("./config.toml")
+
   cv2.namedWindow("Tinycam")
+  cv2.namedWindow(Landscape.WINDOW_TITLE)
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
-  cv2.setWindowProperty("Tinyland", cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_NORMAL) # Allow window to be fullsized by both the OS window controls and OpenCV
+  cv2.setWindowProperty(Landscape.WINDOW_TITLE, cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_NORMAL) # Allow window to be fullsized by both the OS window controls and OpenCV
 
   # Initialize video capture
-  cap = None
-  if projector["USE_CAMERA"]:
+  l.camera = None
+  if l.projector["USE_CAMERA"]:
     try:
       # Grab camera from config
-      cap = cv2.VideoCapture(projector["VIDEO_CAPTURE_INDEX"])
+      l.camera = cv2.VideoCapture(l.projector["VIDEO_CAPTURE_INDEX"])
     except KeyError:
       # If camera doesn't exist in config, prompt user to select one of the connected cameras.
-      cap = select_camera()
+      l.camera = select_camera()
   else:
-    cap = cv2.VideoCapture(projector["VIDEO_FILE_PATH"])
+    l.camera = cv2.VideoCapture(l.projector["VIDEO_FILE_PATH"])
 
   while True:
-    do_frame(cap, projector)
+    l.do_frame()
