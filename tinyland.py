@@ -1,8 +1,11 @@
 import cv2
 import numpy as np
-import cv2.aruco as aruco
 import toml
 import sys
+
+import context
+import snapshot
+
 
 def squaritude(c):
   _, _, w, h = cv2.boundingRect(c)
@@ -12,6 +15,7 @@ def squaritude(c):
       aspect = h/w
   rectitude = cv2.contourArea(c) / (w*h)
   return aspect * rectitude
+
 
 class Landscape:
   WINDOW_TITLE = "Tinyland"
@@ -37,7 +41,7 @@ class Landscape:
       image = cv2.flip(image, -1)
     return image
 
-  def get_frame(self):
+  def get_raw_frame(self):
     frame = self.camera.read()[1]
 
     # If we're at the end of the video, rewind. This comes into play when we're using a video file as input, as for testing offline.
@@ -124,14 +128,28 @@ class Landscape:
   def display_frame(self, image):
     cv2.imshow(self.WINDOW_TITLE, image)
 
-  def do_frame(self):
-    PROJECTOR_WIDTH = self.projector["PROJECTOR_WIDTH"]
-    PROJECTOR_HEIGHT = self.projector["PROJECTOR_HEIGHT"]
+  def initialize_camera(self):
+    if self.projector["USE_CAMERA"]:
+      try:
+        # Grab camera from config
+        self.camera = cv2.VideoCapture(self.projector["VIDEO_CAPTURE_INDEX"])
+      except KeyError:
+        # If camera doesn't exist in config, prompt user to select one of the connected cameras.
+        self.camera = select_camera()
+    else:
+      self.camera = cv2.VideoCapture(self.projector["VIDEO_FILE_PATH"])
+
+  def get_snapshot(self):
+    """Process self.camera image into a Snapshot.
+
+    Returns:
+      snap (snapshot.Snapshot): snapshot generated from self.camera image.
+    """
     SRC_CORNERS = np.array(self.projector["SRC_CORNERS"])
     DEST_CORNERS = np.array(self.projector["DEST_CORNERS"])
+    frame = self.get_raw_frame()
 
-    frame = self.get_frame()
-
+    # TODO: move user input handling out of this method
     # Handle keypress events
     key = self.get_key()
     if key == 'q':
@@ -150,17 +168,30 @@ class Landscape:
         self.homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
 
     image = self.camera_to_projector_space(frame)
+    snap = snapshot.Snapshot(image)
 
-    # Aruco - Find markers
-    aruco_markers = aruco.detectMarkers(image, aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL))
-    corners = aruco_markers[0]
-    ids = aruco_markers[1]
+    return snap
 
-    # Render
+  def project(self, ctx):
+    """Display the draw context to the landscape.
+
+    Process all shapes in the context and render resulting image.
+
+    Args:
+      ctx (context.DrawingContext): A context with shapes to draw
+    """
     BLACK = (0, 0, 0)
     WHITE = (255, 255, 255)
-    image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
-    image = aruco.drawDetectedMarkers(image, corners, ids)
+    image = np.zeros((self.projector["PROJECTOR_HEIGHT"], self.projector["PROJECTOR_WIDTH"], 3), np.uint8)
+    for shape in ctx.shapes:
+      if isinstance(shape, context.Rectangle):
+        image = cv2.rectangle(image,
+                      (int(shape.center.x - shape.width / 2), int(shape.center.y - shape.height / 2)),
+                      (int(shape.center.x + shape.width / 2), int(shape.center.y + shape.height / 2)),
+                      WHITE, cv2.FILLED)
+      elif isinstance(shape, context.Text):
+        center = (int(shape.center.x), int(shape.center.y))
+        image = cv2.putText(image, shape.content, center, cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3, cv2.LINE_AA)
 
     if self.projector.get("CALIBRATE"):
       self.display_markers(image)
@@ -168,17 +199,33 @@ class Landscape:
     # Show it
     self.display_frame(image)
 
-    # Show the debug window
-    cv2.imshow("Tinycam", frame)
+  def do_frame(self):
+    """Basic example of snapshot -> logic -> projection flow."""
+    # Grab snapshot
+    snap = self.get_snapshot()
+
+    # Create context
+    ctx = context.DrawingContext(self.projector["PROJECTOR_WIDTH"], self.projector["PROJECTOR_HEIGHT"])
+    # Draw shapes to context based on data in snapshot
+    for id, markers in snap.markers.items():
+      for marker in markers:
+        ctx.rect(marker.center.x, marker.center.y, 150, 150)
+        ctx.text(marker.center.x, marker.center.y + 160, str(marker.id))
+
+    # Render projection
+    self.project(ctx)
+
 
 def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
 
+
 def select_camera():
   """Get OpenCV VideoCapture camera. Prompt user if multiple cameras found.
 
-  :return: (cv2.VideoCapture) selected camera.
+  Returns:
+    cv2.VideoCapture instance of the selected camera.
   """
   # Get list of all connected cameras
   cameras = []
@@ -215,6 +262,7 @@ def select_camera():
 
       cv2.imshow(SELECT_CAM_WINDOW, cameras[cur_index].read()[1])
 
+
 if __name__ == "__main__":
   l = Landscape()
   l.load_config("./config.toml")
@@ -224,17 +272,7 @@ if __name__ == "__main__":
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
   cv2.setWindowProperty(Landscape.WINDOW_TITLE, cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_NORMAL) # Allow window to be fullsized by both the OS window controls and OpenCV
 
-  # Initialize video capture
-  l.camera = None
-  if l.projector["USE_CAMERA"]:
-    try:
-      # Grab camera from config
-      l.camera = cv2.VideoCapture(l.projector["VIDEO_CAPTURE_INDEX"])
-    except KeyError:
-      # If camera doesn't exist in config, prompt user to select one of the connected cameras.
-      l.camera = select_camera()
-  else:
-    l.camera = cv2.VideoCapture(l.projector["VIDEO_FILE_PATH"])
+  l.initialize_camera()
 
   while True:
     l.do_frame()
