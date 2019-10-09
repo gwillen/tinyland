@@ -59,10 +59,11 @@ class Snapshot:
         corners = aruco_markers[0]
         ids = aruco_markers[1]
         m = {}
-        if ids and corners:
-            for aruco_id, corner in zip(ids, corners):
-                id_key = int(aruco_id[0])
-                [tl, tr, br, bl] = corner[0]
-                m[id_key] = m.get(id_key, [])
-                m[id_key].append(ArucoMarker(id_key, tl, tr, br, bl))
+        if ids is None:
+            return m
+        for aruco_id, corner in zip(ids, corners):
+            id_key = int(aruco_id[0])
+            [tl, tr, br, bl] = corner[0]
+            m[id_key] = m.get(id_key, [])
+            m[id_key].append(ArucoMarker(id_key, tl, tr, br, bl))
         return m
