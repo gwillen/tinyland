@@ -190,7 +190,8 @@ class Landscape:
                       (int(shape.center.x + shape.width / 2), int(shape.center.y + shape.height / 2)),
                       WHITE, cv2.FILLED)
       elif isinstance(shape, context.Text):
-        image = cv2.putText(image, shape.content, shape.center, cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3, cv2.LINE_AA)
+        center = (int(shape.center.x), int(shape.center.y))
+        image = cv2.putText(image, shape.content, center, cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3, cv2.LINE_AA)
 
     if self.projector.get("CALIBRATE"):
       self.display_markers(image)
