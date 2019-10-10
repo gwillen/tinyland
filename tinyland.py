@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 import toml
 import sys
+import time
 
 import context
 import snapshot
-
 
 def squaritude(c):
   _, _, w, h = cv2.boundingRect(c)
@@ -36,7 +36,17 @@ class Landscape:
       cv2.setWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
   def camera_to_projector_space(self, image):
-    image = cv2.warpPerspective(image, self.homography, (self.projector["PROJECTOR_WIDTH"], self.projector["PROJECTOR_HEIGHT"]))
+    for i in range(5):
+      try:
+        image = cv2.warpPerspective(image, self.homography, (self.projector["PROJECTOR_WIDTH"], self.projector["PROJECTOR_HEIGHT"]))
+        break
+      except cv2.error:
+        print("Warp perspective failed. Attempt #%s" % (i + 1))
+        time.sleep(1)
+        if i == 5:
+            print("Warp perspective failed for good 😭. Exiting early.")
+            sys.exit()
+
     if(self.projector["FLIP_PROJECTION"]):
       image = cv2.flip(image, -1)
     return image
@@ -148,6 +158,8 @@ class Landscape:
     SRC_CORNERS = np.array(self.projector["SRC_CORNERS"])
     DEST_CORNERS = np.array(self.projector["DEST_CORNERS"])
     frame = self.get_raw_frame()
+    if frame is not None:
+      cv2.imshow("Tinycam", frame)
 
     # TODO: move user input handling out of this method
     # Handle keypress events
@@ -199,22 +211,6 @@ class Landscape:
     # Show it
     self.display_frame(image)
 
-  def do_frame(self):
-    """Basic example of snapshot -> logic -> projection flow."""
-    # Grab snapshot
-    snap = self.get_snapshot()
-
-    # Create context
-    ctx = context.DrawingContext(self.projector["PROJECTOR_WIDTH"], self.projector["PROJECTOR_HEIGHT"])
-    # Draw shapes to context based on data in snapshot
-    for id, markers in snap.markers.items():
-      for marker in markers:
-        ctx.rect(marker.center.x, marker.center.y, 150, 150)
-        ctx.text(marker.center.x, marker.center.y + 160, str(marker.id))
-
-    # Render projection
-    self.project(ctx)
-
 
 def printXY(_a, x, y, _b, _c):
   print("x: ", x)
@@ -262,17 +258,22 @@ def select_camera():
 
       cv2.imshow(SELECT_CAM_WINDOW, cameras[cur_index].read()[1])
 
-
-if __name__ == "__main__":
+  
+def run(app):
   l = Landscape()
   l.load_config("./config.toml")
-
   cv2.namedWindow("Tinycam")
   cv2.namedWindow(Landscape.WINDOW_TITLE)
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
   cv2.setWindowProperty(Landscape.WINDOW_TITLE, cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_NORMAL) # Allow window to be fullsized by both the OS window controls and OpenCV
-
   l.initialize_camera()
-
+  
   while True:
-    l.do_frame()
+    snap = l.get_snapshot()
+    ctx = context.DrawingContext(l.projector["PROJECTOR_WIDTH"], l.projector["PROJECTOR_HEIGHT"])
+
+    # Run the user defined app
+    app(snap, ctx)
+
+    # Render projection
+    l.project(ctx)

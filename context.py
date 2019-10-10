@@ -31,7 +31,7 @@ class Text(Shape):
 
     def __init__(self, x, y, content):
         super().__init__(x, y)
-        self.content = content
+        self.content = str(content)
 
 
 class DrawingContext:
