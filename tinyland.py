@@ -1,4 +1,5 @@
 import cv2
+import importlib
 import numpy as np
 import toml
 import sys
@@ -6,6 +7,7 @@ import time
 
 import context
 import snapshot
+
 
 def squaritude(c):
   _, _, w, h = cv2.boundingRect(c)
@@ -18,7 +20,6 @@ def squaritude(c):
 
 
 class Landscape:
-  WINDOW_TITLE = "Tinyland"
 
   def __init__(self):
     self.camera = None
@@ -27,13 +28,6 @@ class Landscape:
 
   def load_config(self, config_file):
     self.projector = toml.load(config_file)
-
-  def toggle_fullscreen(self):
-    cur = cv2.getWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN)
-    if cur == cv2.WINDOW_NORMAL:
-      cv2.setWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-    else:
-      cv2.setWindowProperty(self.WINDOW_TITLE, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
   def camera_to_projector_space(self, image):
     for i in range(5):
@@ -60,30 +54,6 @@ class Landscape:
       frame = self.camera.read()[1]
 
     return frame
-
-  def get_key(self):
-    key = cv2.waitKey(1)
-    if key == -1:
-      return None
-    return chr(key & 0xFF)
-
-  def display_markers(self, image):
-    PROJECTOR_WIDTH = self.projector["PROJECTOR_WIDTH"]
-    PROJECTOR_HEIGHT = self.projector["PROJECTOR_HEIGHT"]
-
-    # Display calibration markers until we find them
-    M_SZ = 40
-    marker = np.zeros((M_SZ, M_SZ, 3), dtype=np.uint8)
-    cv2.rectangle(marker, (0, 0), (M_SZ, M_SZ), (255, 255, 255), cv2.FILLED)
-    cv2.rectangle(marker, (10, 10), (M_SZ-10, M_SZ-10), (0, 0, 0), cv2.FILLED)
-
-    image[0:M_SZ, 0:M_SZ] = marker
-    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[0:M_SZ, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
-    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
-    marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, 0:M_SZ] = marker
 
   def find_corners(self, frame):
     PROJECTOR_WIDTH = self.projector["PROJECTOR_WIDTH"]
@@ -135,9 +105,6 @@ class Landscape:
           return final_corners
     return None
 
-  def display_frame(self, image):
-    cv2.imshow(self.WINDOW_TITLE, image)
-
   def initialize_camera(self):
     if self.projector["USE_CAMERA"]:
       try:
@@ -161,16 +128,6 @@ class Landscape:
     if frame is not None:
       cv2.imshow("Tinycam", frame)
 
-    # TODO: move user input handling out of this method
-    # Handle keypress events
-    key = self.get_key()
-    if key == 'q':
-      sys.exit()
-    if key == 'f':
-      self.toggle_fullscreen()
-    if key == 'c':
-      self.projector["CALIBRATE"] = True
-
     if self.projector.get("CALIBRATE"):
       corners = self.find_corners(frame)
       if corners is not None:
@@ -184,37 +141,27 @@ class Landscape:
 
     return snap
 
-  def project(self, ctx):
-    """Display the draw context to the landscape.
-
-    Process all shapes in the context and render resulting image.
-
-    Args:
-      ctx (context.DrawingContext): A context with shapes to draw
-    """
-    BLACK = (0, 0, 0)
-    WHITE = (255, 255, 255)
-    image = np.zeros((self.projector["PROJECTOR_HEIGHT"], self.projector["PROJECTOR_WIDTH"], 3), np.uint8)
-    for shape in ctx.shapes:
-      if isinstance(shape, context.Rectangle):
-        image = cv2.rectangle(image,
-                      (int(shape.center.x - shape.width / 2), int(shape.center.y - shape.height / 2)),
-                      (int(shape.center.x + shape.width / 2), int(shape.center.y + shape.height / 2)),
-                      WHITE, cv2.FILLED)
-      elif isinstance(shape, context.Text):
-        center = (int(shape.center.x), int(shape.center.y))
-        image = cv2.putText(image, shape.content, center, cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3, cv2.LINE_AA)
-
-    if self.projector.get("CALIBRATE"):
-      self.display_markers(image)
-
-    # Show it
-    self.display_frame(image)
-
 
 def printXY(_a, x, y, _b, _c):
   print("x: ", x)
   print("y: ", y)
+
+
+def get_key():
+  key = cv2.waitKey(1)
+  if key == -1:
+    return None
+  return chr(key & 0xFF)
+
+
+def handle_keyevents(l, r):
+  key = get_key()
+  if key == 'q':
+    sys.exit()
+  if key == 'f':
+    r.toggle_fullscreen()
+  if key == 'c':
+    l.projector["CALIBRATE"] = True
 
 
 def select_camera():
@@ -260,20 +207,52 @@ def select_camera():
 
   
 def run(app):
+  """Run a user's app function that represents a Tinyland application.
+
+  This function runs a setup procedure and then the app loop:
+  Setup:
+    1. Set up the Landscape. The Landscape grabs images from the camera and
+       processes them into snapshots for the app function
+    2. Set up the Renderer. Import the desired rendering module and create
+       the Renderer.
+  App Loop:
+    1. Handle top-level Tinyland keyevent like calibration control and quit.
+    2. Grab a Snapshot from the Landscape.
+    3. Either:
+        a. display calibration image
+        b. create DrawingContext and run app function with Snapshot and Context.
+    4. Repeat.
+
+  Args:
+    app: a function that takes a Snapshot and a Context, and writes shapes to
+      the context using its built in methods.
+  """
+  # Setup
   l = Landscape()
   l.load_config("./config.toml")
   cv2.namedWindow("Tinycam")
-  cv2.namedWindow(Landscape.WINDOW_TITLE)
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
-  cv2.setWindowProperty(Landscape.WINDOW_TITLE, cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_NORMAL) # Allow window to be fullsized by both the OS window controls and OpenCV
   l.initialize_camera()
-  
+
+  render_config = l.projector.get("RENDERER", "CV2")
+  render_mod = importlib.import_module(f"{render_config.lower()}_renderer")
+  # TODO: check that render_mod contains subclass definition of Renderer ABC
+  r = render_mod.Renderer(l.projector["PROJECTOR_WIDTH"],
+                          l.projector["PROJECTOR_HEIGHT"])
+  r.setup()
+
+  # App loop
   while True:
+
+    handle_keyevents(l, r)
     snap = l.get_snapshot()
-    ctx = context.DrawingContext(l.projector["PROJECTOR_WIDTH"], l.projector["PROJECTOR_HEIGHT"])
 
-    # Run the user defined app
-    app(snap, ctx)
+    if l.projector.get("CALIBRATE"):
+      r.show_calibration_markers()
+    else:
+      ctx = context.DrawingContext(l.projector["PROJECTOR_WIDTH"],
+                                   l.projector["PROJECTOR_HEIGHT"])
 
-    # Render projection
-    l.project(ctx)
+      # Run the user defined app
+      app(snap, ctx)
+      r.render(ctx)
