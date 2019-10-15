@@ -12,10 +12,10 @@ class Renderer(renderer.Renderer):
         print('Running debug renderer.')
 
     def toggle_fullscreen(self):
-        return
+        pass
 
     def show_calibration_markers(self):
-        return
+        pass
 
     def render(self, ctx):
         """Display the draw context as text.
