@@ -23,3 +23,5 @@ USE_CAMERA = true
 VIDEO_FILE_PATH = "/Users/emma/Desktop/test.m4v"
 
 FLIP_PROJECTION = true # If offline, you probably want this to be false.
+
+RENDERER = "CV2"
