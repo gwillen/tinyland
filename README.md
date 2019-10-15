@@ -23,7 +23,9 @@ There are two way to select a camera:
 2) Use the camera selector: If `USE_CAMERA = true` and `VIDEO_CAPTURE_INDEX` is not set, Tinyland will open a camera selection screen. Press "n" and "p" to cycle through cameras. Press "s" to select.
 
 ### Renderer selection
-The Tinyland library supports rendering your application with different renderer modules, as long as they implement the renderer.Renderer [abstract base class](https://docs.python.org/3/library/abc.html) and follow the naming convention `<your renderer name>_renderer.Renderer`. Choose the renderer by setting `RENDERER = <your renderer name>` in your config file. <br><br>For example, to choose the cv2_renderer module, put `RENDERER = "CV2"` in your config.
+The Tinyland library supports rendering your application with different renderer modules, as long as they implement the renderer. Renderer [abstract base class](https://docs.python.org/3/library/abc.html) and follow the naming convention `<your renderer name>_renderer.Renderer`. Choose the renderer by setting `RENDERER = <your renderer name>` in your config file. 
+
+For example, to choose the cv2_renderer module, put `RENDERER = "CV2"` in your config. Or, to use the text-only debug renderer, use `RENDERER = "debug"`.
 
 ## Usage
 `python3 ./tinyland.py`
