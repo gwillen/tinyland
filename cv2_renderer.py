@@ -78,7 +78,7 @@ class Renderer(renderer.Renderer):
             elif isinstance(shape, context.Circle):
                 center = (int(shape.center.x), int(shape.center.y))
                 image = cv2.circle(image, center, int(shape.radius),
-                                   color=shape.color, thickness=-1)
+                                   color=shape.color, thickness=shape.thickness)
             elif isinstance(shape, context.Text):
                 center = (int(shape.center.x), int(shape.center.y))
                 image = cv2.putText(image, shape.content, center,

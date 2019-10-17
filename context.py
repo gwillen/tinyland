@@ -26,9 +26,10 @@ class Shape:
 
 class Circle(Shape):
 
-    def __init__(self, x, y, radius, color):
+    def __init__(self, x, y, radius, color, thickness):
         super().__init__(x, y, color)
         self.radius = radius
+        self.thickness = thickness
 
 
 class Rectangle(Shape):
@@ -76,8 +77,8 @@ class DrawingContext:
     def rect(self, x, y, width, height, rotation=0, color=WHITE):
         self.shapes.append(Rectangle(x, y, width, height, rotation, color))
 
-    def circle(self, x, y, radius, color=WHITE):
-        self.shapes.append(Circle(x, y, radius, color))
+    def circle(self, x, y, radius, color=WHITE, thickness=-1):
+        self.shapes.append(Circle(x, y, radius, color, thickness))
 
     def text(self, x, y, content, color=WHITE, size=2):
         self.shapes.append(Text(x, y, content, color, size))
