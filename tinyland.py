@@ -8,6 +8,8 @@ import time
 import context
 import snapshot
 
+import cProfile
+
 
 def squaritude(c):
   _, _, w, h = cv2.boundingRect(c)
@@ -18,6 +20,9 @@ def squaritude(c):
   rectitude = cv2.contourArea(c) / (w*h)
   return aspect * rectitude
 
+class FakeCamera:
+  def __init__(self, fake_markers):
+    self.fake_markers = fake_markers
 
 class Landscape:
 
@@ -113,8 +118,10 @@ class Landscape:
       except KeyError:
         # If camera doesn't exist in config, prompt user to select one of the connected cameras.
         self.camera = select_camera()
-    else:
+    elif self.projector.get("VIDEO_FILE_PATH"):
       self.camera = cv2.VideoCapture(self.projector["VIDEO_FILE_PATH"])
+    elif self.projector["FAKE_MARKERS"]:
+      self.camera = FakeCamera(self.projector["FAKE_MARKERS"])
 
   def get_snapshot(self):
     """Process self.camera image into a Snapshot.
@@ -124,20 +131,24 @@ class Landscape:
     """
     SRC_CORNERS = np.array(self.projector["SRC_CORNERS"])
     DEST_CORNERS = np.array(self.projector["DEST_CORNERS"])
-    frame = self.get_raw_frame()
-    if frame is not None:
-      cv2.imshow("Tinycam", frame)
 
-    if self.projector.get("CALIBRATE"):
-      corners = self.find_corners(frame)
-      if corners is not None:
-        SRC_CORNERS = corners
-        self.projector["SRC_CORNERS"] = corners
-        self.projector["CALIBRATE"] = False
-        self.homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
+    if isinstance(self.camera, FakeCamera):
+      snap = snapshot.FakeSnapshot(self.camera.fake_markers)
+    else:
+      frame = self.get_raw_frame()
+      if frame is not None:
+        cv2.imshow("Tinycam", frame)
 
-    image = self.camera_to_projector_space(frame)
-    snap = snapshot.Snapshot(image)
+      if self.projector.get("CALIBRATE"):
+        corners = self.find_corners(frame)
+        if corners is not None:
+          SRC_CORNERS = corners
+          self.projector["SRC_CORNERS"] = corners
+          self.projector["CALIBRATE"] = False
+          self.homography, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
+
+      image = self.camera_to_projector_space(frame)
+      snap = snapshot.Snapshot(image)
 
     return snap
 
@@ -205,7 +216,7 @@ def select_camera():
 
       cv2.imshow(SELECT_CAM_WINDOW, cameras[cur_index].read()[1])
 
-  
+
 def run(app):
   """Run a user's app function that represents a Tinyland application.
 
@@ -231,7 +242,7 @@ def run(app):
   l = Landscape()
   l.load_config("./config.toml")
   cv2.namedWindow("Tinycam")
-  cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
+  #cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
   l.initialize_camera()
 
   render_config = l.projector.get("RENDERER", "CV2")
@@ -241,18 +252,26 @@ def run(app):
                           l.projector["PROJECTOR_HEIGHT"])
   r.setup()
 
+  pr = cProfile.Profile()
+
   # App loop
   while True:
+    if l.projector.get("PROFILE"):
+      pr.enable()
+    for i in range(10):
+      handle_keyevents(l, r)
+      snap = l.get_snapshot()
 
-    handle_keyevents(l, r)
-    snap = l.get_snapshot()
+      if l.projector.get("CALIBRATE"):
+        r.show_calibration_markers()
+      else:
+        ctx = context.DrawingContext(l.projector["PROJECTOR_WIDTH"],
+                                     l.projector["PROJECTOR_HEIGHT"])
 
-    if l.projector.get("CALIBRATE"):
-      r.show_calibration_markers()
-    else:
-      ctx = context.DrawingContext(l.projector["PROJECTOR_WIDTH"],
-                                   l.projector["PROJECTOR_HEIGHT"])
+        # Run the user defined app
+        app(snap, ctx)
+        r.render(ctx)
+    if l.projector.get("PROFILE"):
+      pr.disable()
+      pr.print_stats(sort='time')
 
-      # Run the user defined app
-      app(snap, ctx)
-      r.render(ctx)

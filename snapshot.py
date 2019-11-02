@@ -67,3 +67,8 @@ class Snapshot:
             m[id_key] = m.get(id_key, [])
             m[id_key].append(ArucoMarker(id_key, tl, tr, br, bl))
         return m
+
+class FakeSnapshot:
+    def __init__(self, fake_markers):
+        self.image = None
+        self.markers = {x[0]: [Marker(x[1], x[2])] for x in fake_markers}

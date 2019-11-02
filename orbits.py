@@ -36,7 +36,7 @@ def app(snap, ctx):
   now = time.time()
   if last_ran is not None:
     delay = now - last_ran
-    print("frame interval: " + str(delay * 1000) + "ms")
+    #print("frame interval: " + str(delay * 1000) + "ms")
   last_ran = now
 
   stars = []
